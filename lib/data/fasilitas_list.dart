@@ -49,6 +49,7 @@ final List<Fasilitas> fasilitasList = [
         "Kantin kampus menyediakan berbagai pilihan makanan dan minuman untuk mahasiswa dan staf, pembayaran di loket dan mendapat kupon untuk membeli makanannya.",
     imagePath: "assets/images/kant.jpeg",
     keywords: [
+      "canteen",
       "kantin",
       "makanan",
       "minuman",
@@ -63,7 +64,8 @@ final List<Fasilitas> fasilitasList = [
     imagePath: "assets/fac/BAA.jpeg",
     keywords: [
       "BAA",
-      "biro akademik",
+      "biro"
+          "biro akademik",
       "administrasi akademik",
     ],
   ),

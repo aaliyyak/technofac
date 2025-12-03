@@ -140,7 +140,7 @@ class _VoiceInputPageState extends State<VoiceInputPage> {
             bottom: 0,
             left: 0,
             child: Image.asset(
-              'assets/7.png',
+              'assets/img/7.png',
               width: 60,
               height: 118,
             ),

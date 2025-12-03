@@ -1,5 +1,4 @@
-// NavigationPage.dart
-
+// Tetap import seperti biasa
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -23,19 +22,18 @@ class NavigationPage extends StatefulWidget {
 class _NavigationPageState extends State<NavigationPage> {
   String posisiSaatIni = 'Sedang mendeteksi...';
   String gedungTujuan = '';
-  int? lantaiTerpilih;
-  List<int> daftarLantai = [];
-  String? metodeAkses;
 
-  final Map<String, int> gedungDanLantai = {
-    'Gedung L': 3,
-    'Gedung B': 10,
-    'Gedung C': 12,
-    'Fakultas Kedokteran': 5,
-    'Pascasarjana': 3,
-    'Rumah Saya': 1,
-    'Rumah Putri': 1,
-  };
+  final List<String> daftarGedung = [
+    'Gedung L',
+    'Gedung B',
+    'Gedung C',
+    'Fakultas Kedokteran',
+    'Gedung PASCA',
+    'Rumah Saya',
+    'Rumah Putri',
+    'Lab. Anatomi',
+    'ATM Center',
+  ];
 
   String selectedGedung = '';
   TextEditingController tujuanController = TextEditingController();
@@ -46,7 +44,7 @@ class _NavigationPageState extends State<NavigationPage> {
     super.initState();
     selectedGedung = widget.lokasiTujuan;
     tujuanController.text = widget.lokasiTujuan;
-    _aturGedungTujuan(widget.lokasiTujuan);
+    gedungTujuan = widget.lokasiTujuan;
     _suarakan("Sedang mendeteksi lokasi anda...");
     _ambilPosisiDariWifi();
   }
@@ -57,20 +55,9 @@ class _NavigationPageState extends State<NavigationPage> {
     await tts.speak(text);
   }
 
-  void _aturGedungTujuan(String namaGedung) {
-    gedungDanLantai.forEach((gedung, jumlahLantai) {
-      if (namaGedung.toLowerCase().contains(gedung.toLowerCase())) {
-        setState(() {
-          gedungTujuan = gedung;
-          daftarLantai = List.generate(jumlahLantai, (index) => index + 1);
-          lantaiTerpilih = null;
-          metodeAkses = null;
-        });
-      }
-    });
-  }
-
   Future<void> _ambilPosisiDariWifi() async {
+    setState(() => posisiSaatIni = 'Sedang mendeteksi...');
+
     final status = await Permission.locationWhenInUse.request();
     if (!status.isGranted) {
       if (mounted) setState(() => posisiSaatIni = 'Izin lokasi ditolak');
@@ -83,7 +70,7 @@ class _NavigationPageState extends State<NavigationPage> {
       return;
     }
 
-    final CanStartScan canStart = await WiFiScan.instance.canStartScan();
+    final canStart = await WiFiScan.instance.canStartScan();
     if (canStart != CanStartScan.yes) {
       if (mounted) {
         setState(() => posisiSaatIni =
@@ -96,25 +83,24 @@ class _NavigationPageState extends State<NavigationPage> {
       await WiFiScan.instance.startScan();
       final hasil = await WiFiScan.instance.getScannedResults();
 
-      if (hasil.isEmpty) {
-        if (mounted) {
-          setState(() => posisiSaatIni = 'Tidak ada Wi-Fi terdeteksi');
-        }
-        return;
-      }
+      final wifiTerdekat = hasil.firstWhere(
+        (wifi) =>
+            wifi.ssid.trim().isNotEmpty &&
+            !wifi.ssid.toLowerCase().contains("nvram warning"),
+        orElse: () => hasil.first,
+      );
 
-      final wifiTerdekat = hasil.first;
       final model = WifiPositionModel(
-        ssid: wifiTerdekat.ssid,
+        ssid: wifiTerdekat.ssid.trim(),
         rssi: wifiTerdekat.level,
       );
 
-      await Future.delayed(const Duration(seconds: 4));
+      await Future.delayed(const Duration(seconds: 2));
 
       if (mounted) {
-        setState(() => posisiSaatIni = model.getLokasi());
-        _suarakan(
-            "Lokasi ditemukan. Saat ini Anda berada di ${model.getLokasi()}");
+        final lokasi = model.getLokasi();
+        setState(() => posisiSaatIni = lokasi);
+        _suarakan("Lokasi ditemukan. Saat ini Anda berada di $lokasi");
       }
     } catch (e) {
       if (mounted) setState(() => posisiSaatIni = 'Gagal mendeteksi Wi-Fi: $e');
@@ -136,99 +122,16 @@ class _NavigationPageState extends State<NavigationPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoBox(
+            _buildInfoBoxWithRefresh(
               icon: Icons.my_location,
               title: "Posisi Saat Ini",
               value: posisiSaatIni,
               color: Colors.blue,
               bgColor: Colors.blue.shade50,
+              onRefresh: _ambilPosisiDariWifi,
             ),
             const SizedBox(height: 20),
-
-            // Pilih Gedung Tujuan
             _buildGedungDropdown(),
-
-            const SizedBox(height: 20),
-
-            if (gedungTujuan.isNotEmpty) ...[
-              Row(
-                children: [
-                  const Icon(Icons.stairs, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Text("Pilih Lantai $gedungTujuan",
-                      style: GoogleFonts.candal(
-                          fontSize: 16, color: Colors.black)),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Dropdown Pilih Lantai
-              DropdownButtonFormField<int>(
-                value: lantaiTerpilih,
-                hint: const Text("Pilih Lantai"),
-                dropdownColor: Colors.white,
-                items: daftarLantai.map((lantai) {
-                  return DropdownMenuItem<int>(
-                    value: lantai,
-                    child: Text("Lantai $lantai",
-                        style: const TextStyle(color: Colors.black)),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() => lantaiTerpilih = value);
-                  _suarakan("Lantai $value dipilih");
-                },
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              _buildInfoBoxCustom(
-                icon: Icons.swap_vert_circle_outlined,
-                title: "Pilih Metode Akses Lantai",
-                content: Column(
-                  children: [
-                    RadioListTile<String>(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Row(
-                        children: [
-                          Icon(Icons.directions_walk, color: Colors.green),
-                          SizedBox(width: 6), // Jarak antara ikon dan teks
-                          Text("Tangga", style: TextStyle(color: Colors.black)),
-                        ],
-                      ),
-                      value: "Tangga",
-                      groupValue: metodeAkses,
-                      onChanged: (value) {
-                        setState(() => metodeAkses = value);
-                        _suarakan("Anda memilih menggunakan tangga");
-                      },
-                    ),
-                    RadioListTile<String>(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Row(
-                        children: [
-                          Icon(Icons.elevator, color: Colors.blue),
-                          SizedBox(width: 6),
-                          Text("Lift", style: TextStyle(color: Colors.black)),
-                        ],
-                      ),
-                      value: "Lift",
-                      groupValue: metodeAkses,
-                      onChanged: (value) {
-                        setState(() => metodeAkses = value);
-                        _suarakan("Anda memilih menggunakan lift");
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -239,21 +142,16 @@ class _NavigationPageState extends State<NavigationPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: const Icon(Icons.directions_walk),
-              label: const Text("Mulai Navigasi Indoor"),
+              label: const Text("Mulai Navigasi"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700, // warna aktif
-                // disabledBackgroundColor: Colors.blue.shade100, // warna saat disabled
-                foregroundColor: Colors.white, // warna teks saat aktif
-                disabledForegroundColor:
-                    Colors.white, // warna teks saat disabled
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              onPressed: (gedungTujuan.isEmpty ||
-                      lantaiTerpilih == null ||
-                      metodeAkses == null)
+              onPressed: gedungTujuan.isEmpty
                   ? null
                   : () {
                       Navigator.push(
@@ -261,8 +159,9 @@ class _NavigationPageState extends State<NavigationPage> {
                         MaterialPageRoute(
                           builder: (_) => KMap(
                             tujuan: gedungTujuan,
-                            lantai: lantaiTerpilih!,
-                            metodeAkses: '',
+                            lantai: 1, // default lantai 1
+                            metodeAkses: 'default',
+                            posisiAwal: const Offset(0, 0),
                           ),
                         ),
                       );
@@ -281,13 +180,6 @@ class _NavigationPageState extends State<NavigationPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.blue.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade100.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,9 +199,6 @@ class _NavigationPageState extends State<NavigationPage> {
                       selectedGedung = '';
                       tujuanController.clear();
                       gedungTujuan = '';
-                      daftarLantai.clear();
-                      lantaiTerpilih = null;
-                      metodeAkses = null;
                     });
                   },
                 ),
@@ -320,7 +209,7 @@ class _NavigationPageState extends State<NavigationPage> {
             value: selectedGedung.isNotEmpty ? selectedGedung : null,
             hint: const Text("Pilih Gedung"),
             dropdownColor: Colors.white,
-            items: gedungDanLantai.keys.map((String gedung) {
+            items: daftarGedung.map((gedung) {
               return DropdownMenuItem<String>(
                 value: gedung,
                 child:
@@ -332,7 +221,7 @@ class _NavigationPageState extends State<NavigationPage> {
                 setState(() {
                   selectedGedung = value;
                   tujuanController.text = value;
-                  _aturGedungTujuan(value);
+                  gedungTujuan = value;
                 });
               }
             },
@@ -354,19 +243,20 @@ class _NavigationPageState extends State<NavigationPage> {
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onChanged: (value) => _aturGedungTujuan(value),
+            onChanged: (value) => setState(() => gedungTujuan = value),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoBox({
+  Widget _buildInfoBoxWithRefresh({
     required IconData icon,
     required String title,
     required String value,
     required Color color,
     required Color bgColor,
+    required VoidCallback onRefresh,
   }) {
     return Container(
       width: double.infinity,
@@ -375,13 +265,6 @@ class _NavigationPageState extends State<NavigationPage> {
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -401,56 +284,13 @@ class _NavigationPageState extends State<NavigationPage> {
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black54),
+            tooltip: 'Deteksi ulang lokasi',
+            onPressed: onRefresh,
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildInfoBoxCustom({
-    required IconData icon,
-    required String title,
-    required Widget content,
-  }) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade100.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.blue, size: 28),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(title,
-                    style:
-                        GoogleFonts.candal(fontSize: 16, color: Colors.black)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          content,
-        ],
-      ),
-    );
-  }
-}
-
-class LatLng {
-  final double lat;
-  final double lng;
-  LatLng(this.lat, this.lng);
 }

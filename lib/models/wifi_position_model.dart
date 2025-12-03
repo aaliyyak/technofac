@@ -14,6 +14,8 @@ class WifiPositionModel {
       return 'Gedung B Lantai 2';
     } else if (ssid.contains('Ayu')) {
       return 'Rumah Saya';
+    } else if (ssid.contains('Ayu-5G')) {
+      return 'Rumah Saya';
     } else if (ssid.contains('Hajjima')) {
       return 'Rumah Putri';
     } else if (ssid.contains('PASCA LANTAI1')) {
